@@ -8,3 +8,4 @@ pub mod cache;
 pub mod index;
 
 pub use sqlite::SqliteStore;
+pub use cache::ContentCache;
