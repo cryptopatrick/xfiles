@@ -5,12 +5,12 @@ edition = "2024"
 authors = ["CryptoPatrick <cryptopatrick@gmail.com>"]
 
 ###############################################################################
-description = "Twitter (X) as a public filesystem."
+description = "Persistence of data using X, formerly known as Twitter, as a public filesystem."
 documentation = "https://docs.rs/xfiles"
 homepage = "https://github.com/cryptopatrick/xfiles"
 repository = "https://github.com/cryptopatrick/xfiles"
 readme = "README.md"
-keywords = ["<KEYWORD1>", "<KEYWORD2>" ]
+keywords = ["database-implementations"]
 license = "MIT"
 autotests = false
 
