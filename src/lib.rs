@@ -68,24 +68,29 @@ pub struct XFS {
 }
 
 impl XFS {
-    /// Connect to xfiles with Twitter credentials
+    /// Connect to xfiles with Twitter Bearer Token
     ///
     /// # Arguments
     ///
     /// * `user` - Twitter username (e.g., "@myagent")
-    /// * `api_key` - Twitter API key
-    /// * `api_secret` - Twitter API secret
+    /// * `bearer_token` - Twitter API v2 Bearer Token
+    ///
+    /// To get a Bearer Token:
+    /// 1. Go to https://developer.twitter.com/en/portal/dashboard
+    /// 2. Create a project and app
+    /// 3. Generate Bearer Token under "Keys and tokens"
     ///
     /// # Example
     ///
     /// ```rust,no_run
     /// # use xfiles::XFS;
     /// # async fn example() -> xfiles::error::Result<()> {
-    /// let fs = XFS::connect("@myagent", "key", "secret").await?;
+    /// let bearer_token = std::env::var("TWITTER_BEARER_TOKEN").unwrap();
+    /// let fs = XFS::connect("@myagent", &bearer_token).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn connect(user: &str, api_key: &str, api_secret: &str) -> Result<Self> {
+    pub async fn connect(user: &str, bearer_token: &str) -> Result<Self> {
         let user = user.trim_start_matches('@').to_string();
 
         // Initialize SQLite store
@@ -94,7 +99,7 @@ impl XFS {
         store.init_schema().await?;
 
         // Initialize Twitter adapter
-        let adapter = TwitterAdapter::new(api_key.to_string(), api_secret.to_string());
+        let adapter = TwitterAdapter::new(bearer_token.to_string());
 
         // Initialize content cache
         let cache = ContentCache::new();

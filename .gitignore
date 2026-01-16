@@ -7,6 +7,10 @@ _dev/
 # Files
 .DS_Store
 Cargo.lock
+.env
+*.db
+*.db-shm
+*.db-wal
 
 # Agentic
 .claude
