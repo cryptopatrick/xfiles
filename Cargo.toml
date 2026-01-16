@@ -10,7 +10,8 @@ documentation = "https://docs.rs/xfiles"
 homepage = "https://github.com/cryptopatrick/xfiles"
 repository = "https://github.com/cryptopatrick/xfiles"
 readme = "README.md"
-keywords = ["database-implementations"]
+keywords = ["twitter", "persistence", "agents"]
+category = ["database-implementations"]
 license = "MIT"
 autotests = false
 
