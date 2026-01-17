@@ -68,38 +68,59 @@ pub struct XFS {
 }
 
 impl XFS {
-    /// Connect to xfiles with Twitter Bearer Token
+    /// Connect to xfiles with Twitter OAuth 1.0a credentials
     ///
     /// # Arguments
     ///
     /// * `user` - Twitter username (e.g., "@myagent")
-    /// * `bearer_token` - Twitter API v2 Bearer Token
+    /// * `consumer_key` - Twitter API Key
+    /// * `consumer_secret` - Twitter API Secret
+    /// * `access_token` - OAuth Access Token
+    /// * `access_token_secret` - OAuth Access Token Secret
     ///
-    /// To get a Bearer Token:
+    /// To get OAuth 1.0a credentials:
     /// 1. Go to https://developer.twitter.com/en/portal/dashboard
     /// 2. Create a project and app
-    /// 3. Generate Bearer Token under "Keys and tokens"
+    /// 3. Under "Keys and tokens", generate:
+    ///    - API Key & Secret (Consumer Key & Secret)
+    ///    - Access Token & Secret
+    /// 4. Ensure app has "Read and Write" permissions
     ///
     /// # Example
     ///
     /// ```rust,no_run
     /// # use xfiles::XFS;
     /// # async fn example() -> xfiles::error::Result<()> {
-    /// let bearer_token = std::env::var("TWITTER_BEARER_TOKEN").unwrap();
-    /// let fs = XFS::connect("@myagent", &bearer_token).await?;
+    /// let consumer_key = std::env::var("TWITTER_API_KEY").unwrap();
+    /// let consumer_secret = std::env::var("TWITTER_API_SECRET").unwrap();
+    /// let access_token = std::env::var("TWITTER_ACCESS_TOKEN").unwrap();
+    /// let access_token_secret = std::env::var("TWITTER_ACCESS_TOKEN_SECRET").unwrap();
+    /// let fs = XFS::connect("@myagent", &consumer_key, &consumer_secret,
+    ///                        &access_token, &access_token_secret).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn connect(user: &str, bearer_token: &str) -> Result<Self> {
+    pub async fn connect(
+        user: &str,
+        consumer_key: &str,
+        consumer_secret: &str,
+        access_token: &str,
+        access_token_secret: &str,
+    ) -> Result<Self> {
         let user = user.trim_start_matches('@').to_string();
 
         // Initialize SQLite store
         let db_path = format!("xfiles_{}.db", user);
-        let store = SqliteStore::new(&format!("sqlite://{}", db_path)).await?;
+        let store = SqliteStore::new(&format!("sqlite://{}?mode=rwc", db_path)).await?;
         store.init_schema().await?;
 
-        // Initialize Twitter adapter
-        let adapter = TwitterAdapter::new(bearer_token.to_string());
+        // Initialize Twitter adapter with OAuth 1.0a
+        let adapter = TwitterAdapter::new(
+            consumer_key.to_string(),
+            consumer_secret.to_string(),
+            access_token.to_string(),
+            access_token_secret.to_string(),
+        );
 
         // Initialize content cache
         let cache = ContentCache::new();
@@ -154,23 +175,24 @@ impl XFS {
         let root = self.store.get_file_root(path).await?;
 
         match (root, mode) {
-            (Some(root_id), OpenMode::Create) => {
+            (Some(_root_id), OpenMode::Create) => {
                 // File already exists
                 Err(XFilesError::Other(format!("File already exists: {}", path)))
             }
             (None, OpenMode::Create) => {
-                // Create new file - post root tweet
-                let initial_content = b"";
-                let root_id = self.adapter.store(initial_content).await?;
+                // Create new file - post root tweet with filename
+                let initial_content = format!("📁 {}", path);
+                let initial_bytes = initial_content.as_bytes();
+                let root_id = self.adapter.store(initial_bytes).await?;
 
                 // Create root commit
                 let commit = Commit::new(
                     root_id.clone(),
                     Vec::new(), // No parents for root
                     self.user.clone(),
-                    util::hash::compute_hash(initial_content),
+                    util::hash::compute_hash(initial_bytes),
                     "text/plain".to_string(),
-                    0,
+                    initial_bytes.len(),
                 );
 
                 self.store.store_commit(&commit).await?;

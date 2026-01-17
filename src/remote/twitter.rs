@@ -1,63 +1,77 @@
-//! Twitter API client implementation
+//! Twitter API client implementation with OAuth 1.0a
 
 use crate::dag::commit::TweetId;
 use crate::error::{Result, XFilesError};
 use async_trait::async_trait;
-use reqwest::{Client, header};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use oauth::{Token, Builder, HmacSha1};
 
 const TWITTER_API_BASE: &str = "https://api.twitter.com/2";
 
-/// Twitter API adapter
+/// Twitter API adapter with OAuth 1.0a authentication
 pub struct TwitterAdapter {
     client: Client,
-    bearer_token: String,
+    token: Token<Box<str>>,
 }
 
 impl TwitterAdapter {
-    /// Create a new Twitter adapter with Bearer Token authentication
+    /// Create a new Twitter adapter with OAuth 1.0a authentication
     ///
-    /// For Twitter API v2, you need a Bearer Token which can be obtained from:
-    /// https://developer.twitter.com/en/portal/dashboard
+    /// For Twitter API v2 write operations, you need OAuth 1.0a credentials:
+    /// - Consumer Key (API Key)
+    /// - Consumer Secret (API Secret)
+    /// - Access Token
+    /// - Access Token Secret
+    ///
+    /// Get these from: https://developer.twitter.com/en/portal/dashboard
     ///
     /// # Arguments
-    /// * `bearer_token` - Your Twitter API Bearer Token (not API key/secret)
-    pub fn new(bearer_token: String) -> Self {
-        let mut headers = header::HeaderMap::new();
-        headers.insert(
-            header::AUTHORIZATION,
-            header::HeaderValue::from_str(&format!("Bearer {}", bearer_token))
-                .expect("Invalid bearer token"),
-        );
-
+    /// * `consumer_key` - Your Twitter API Key
+    /// * `consumer_secret` - Your Twitter API Secret
+    /// * `access_token` - Your Access Token
+    /// * `access_token_secret` - Your Access Token Secret
+    pub fn new(
+        consumer_key: String,
+        consumer_secret: String,
+        access_token: String,
+        access_token_secret: String,
+    ) -> Self {
         let client = Client::builder()
-            .default_headers(headers)
             .build()
             .expect("Failed to build HTTP client");
 
-        Self {
-            client,
-            bearer_token,
-        }
+        let token = Token::from_parts(
+            consumer_key.into(),
+            consumer_secret.into(),
+            access_token.into(),
+            access_token_secret.into(),
+        );
+
+        Self { client, token }
     }
 
-    /// Create adapter from API key and secret (legacy OAuth 1.0a - deprecated)
-    /// For new applications, use `new()` with Bearer Token instead
-    #[deprecated(note = "Use new() with Bearer Token for Twitter API v2")]
-    pub fn from_api_keys(api_key: String, api_secret: String) -> Self {
-        // For backwards compatibility, treat api_key as bearer_token
-        let _ = api_secret; // Unused
-        Self::new(api_key)
+    /// Generate OAuth 1.0a Authorization header
+    fn generate_oauth_header(&self, method: &str, url: &str) -> String {
+        if method == "POST" {
+            oauth::post(url, &(), &self.token, HmacSha1)
+        } else {
+            oauth::get(url, &(), &self.token, HmacSha1)
+        }
     }
 
     /// Get a tweet by ID
     pub async fn get_tweet(&self, id: &TweetId) -> Result<Tweet> {
-        let url = format!("{}/tweets/{}", TWITTER_API_BASE, id);
+        let base_url = format!("{}/tweets/{}", TWITTER_API_BASE, id);
+        let url_with_params = format!("{}?tweet.fields=created_at,author_id,in_reply_to_user_id,referenced_tweets", base_url);
+
+        let auth_header = self.generate_oauth_header("GET", &url_with_params);
 
         let response = self
             .client
-            .get(&url)
+            .get(&base_url)
             .query(&[("tweet.fields", "created_at,author_id,in_reply_to_user_id,referenced_tweets")])
+            .header("Authorization", auth_header)
             .send()
             .await
             .map_err(|e| XFilesError::TwitterApi(format!("Failed to fetch tweet: {}", e)))?;
@@ -84,21 +98,26 @@ impl TwitterAdapter {
     }
 
     /// Get replies to a tweet
-    /// Note: This uses Twitter search API which may have limitations
     pub async fn get_replies(&self, id: &TweetId) -> Result<Vec<Tweet>> {
-        let url = format!("{}/tweets/search/recent", TWITTER_API_BASE);
-
-        // Search for tweets that are replies to this tweet
+        let base_url = format!("{}/tweets/search/recent", TWITTER_API_BASE);
         let query = format!("conversation_id:{}", id);
+        // Note: OAuth library will handle URL encoding
+        let url_with_params = format!(
+            "{}?query={}&tweet.fields=created_at,author_id,in_reply_to_user_id,referenced_tweets&max_results=100",
+            base_url, query
+        );
+
+        let auth_header = self.generate_oauth_header("GET", &url_with_params);
 
         let response = self
             .client
-            .get(&url)
+            .get(&base_url)
             .query(&[
                 ("query", query.as_str()),
                 ("tweet.fields", "created_at,author_id,in_reply_to_user_id,referenced_tweets"),
                 ("max_results", "100"),
             ])
+            .header("Authorization", auth_header)
             .send()
             .await
             .map_err(|e| XFilesError::TwitterApi(format!("Failed to fetch replies: {}", e)))?;
@@ -129,14 +148,22 @@ impl TwitterAdapter {
     pub async fn post_tweet(&self, content: &str) -> Result<TweetId> {
         let url = format!("{}/tweets", TWITTER_API_BASE);
 
+        let auth_header = self.generate_oauth_header("POST", &url);
+
         let payload = CreateTweetRequest {
             text: content.to_string(),
             reply: None,
         };
 
+        eprintln!("DEBUG: POST URL: {}", url);
+        eprintln!("DEBUG: Auth header: {}", &auth_header[..50.min(auth_header.len())]);
+        eprintln!("DEBUG: Payload: {:?}", payload);
+
         let response = self
             .client
             .post(&url)
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
             .json(&payload)
             .send()
             .await
@@ -145,6 +172,8 @@ impl TwitterAdapter {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
+            eprintln!("DEBUG: Response status: {}", status);
+            eprintln!("DEBUG: Response body: {}", error_text);
             return Err(XFilesError::TwitterApi(format!(
                 "Twitter API error {}: {}",
                 status, error_text
@@ -168,6 +197,8 @@ impl TwitterAdapter {
     pub async fn post_reply(&self, parent_id: &TweetId, content: &str) -> Result<TweetId> {
         let url = format!("{}/tweets", TWITTER_API_BASE);
 
+        let auth_header = self.generate_oauth_header("POST", &url);
+
         let payload = CreateTweetRequest {
             text: content.to_string(),
             reply: Some(ReplySettings {
@@ -178,6 +209,8 @@ impl TwitterAdapter {
         let response = self
             .client
             .post(&url)
+            .header("Authorization", auth_header)
+            .header("Content-Type", "application/json")
             .json(&payload)
             .send()
             .await

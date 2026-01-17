@@ -2,13 +2,17 @@
 //!
 //! Prerequisites:
 //! 1. Set up Twitter Developer account at https://developer.twitter.com
-//! 2. Create a project and app
-//! 3. Get your Bearer Token
-//! 4. Set TWITTER_BEARER_TOKEN environment variable
+//! 2. Create a project and app with "Read and Write" permissions
+//! 3. Get your OAuth 1.0a credentials (4 values)
+//! 4. Set environment variables
 //!
 //! Run with:
 //! ```
-//! export TWITTER_BEARER_TOKEN="your_token_here"
+//! export TWITTER_API_KEY="your_api_key"
+//! export TWITTER_API_SECRET="your_api_secret"
+//! export TWITTER_ACCESS_TOKEN="your_access_token"
+//! export TWITTER_ACCESS_TOKEN_SECRET="your_access_token_secret"
+//! export TWITTER_USERNAME="your_username"
 //! cargo run --example twitter_real
 //! ```
 
@@ -18,17 +22,24 @@ use xfiles::*;
 async fn main() -> Result<()> {
     println!("=== xfiles Twitter API Example ===\n");
 
-    // Get credentials from environment
-    let bearer_token = std::env::var("TWITTER_BEARER_TOKEN")
-        .expect("TWITTER_BEARER_TOKEN environment variable not set");
+    // Get OAuth credentials from environment
+    let api_key = std::env::var("TWITTER_API_KEY")
+        .expect("TWITTER_API_KEY environment variable not set");
+    let api_secret = std::env::var("TWITTER_API_SECRET")
+        .expect("TWITTER_API_SECRET environment variable not set");
+    let access_token = std::env::var("TWITTER_ACCESS_TOKEN")
+        .expect("TWITTER_ACCESS_TOKEN environment variable not set");
+    let access_token_secret = std::env::var("TWITTER_ACCESS_TOKEN_SECRET")
+        .expect("TWITTER_ACCESS_TOKEN_SECRET environment variable not set");
 
     let username = std::env::var("TWITTER_USERNAME")
         .unwrap_or_else(|_| "xfiles_agent".to_string());
 
     println!("Connecting to Twitter API as @{}...", username);
 
-    // Connect with real Twitter API
-    let mut fs = XFS::connect(&username, &bearer_token).await?;
+    // Connect with real Twitter API using OAuth 1.0a
+    let mut fs = XFS::connect(&username, &api_key, &api_secret,
+                               &access_token, &access_token_secret).await?;
     println!("✓ Connected successfully\n");
 
     println!("Creating a file (will post a root tweet)...");

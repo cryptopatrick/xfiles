@@ -24,20 +24,44 @@ This guide walks you through setting up Twitter API access for xfiles.
 5. Create an App within the project
 6. Give your app a name (e.g., "xfiles-bot")
 
-## Step 3: Get Your Bearer Token
+## Step 3: Configure App Permissions
 
 1. Navigate to your app in the Developer Portal
-2. Go to the "Keys and tokens" tab
-3. Under "Authentication Tokens", find "Bearer Token"
-4. Click "Generate" if it doesn't exist
-5. **IMPORTANT**: Copy and save the Bearer Token immediately - you won't be able to see it again!
+2. Go to "Settings" tab
+3. Under "User authentication settings", click "Set up"
+4. Enable "Read and Write" permissions (required for posting tweets)
+5. Save your changes
 
-## Step 4: Configure xfiles
+**IMPORTANT**: If you change permissions, you must regenerate your access tokens!
+
+## Step 4: Get Your OAuth 1.0a Credentials
+
+You need **four** credentials for xfiles (OAuth 1.0a):
+
+1. Navigate to your app's "Keys and tokens" tab
+2. **API Key & API Secret (Consumer Keys)**:
+   - Find "Consumer Keys" section
+   - Copy your "API Key" (also called Consumer Key)
+   - Copy your "API Secret" (also called Consumer Secret)
+
+3. **Access Token & Access Token Secret**:
+   - Find "Authentication Tokens" section
+   - Click "Generate" if tokens don't exist
+   - Copy your "Access Token"
+   - Copy your "Access Token Secret"
+   - **IMPORTANT**: You won't be able to see these again!
+
+All four credentials are required for posting tweets.
+
+## Step 5: Configure xfiles
 
 ### Option A: Environment Variables (Recommended)
 
 ```bash
-export TWITTER_BEARER_TOKEN="your_bearer_token_here"
+export TWITTER_API_KEY="your_api_key_here"
+export TWITTER_API_SECRET="your_api_secret_here"
+export TWITTER_ACCESS_TOKEN="your_access_token_here"
+export TWITTER_ACCESS_TOKEN_SECRET="your_access_token_secret_here"
 export TWITTER_USERNAME="your_twitter_username"
 ```
 
@@ -52,13 +76,16 @@ Add these to your `~/.bashrc`, `~/.zshrc`, or equivalent.
 
 2. Edit `.env` and add your credentials:
    ```
-   TWITTER_BEARER_TOKEN=your_actual_bearer_token
+   TWITTER_API_KEY=your_actual_api_key
+   TWITTER_API_SECRET=your_actual_api_secret
+   TWITTER_ACCESS_TOKEN=your_actual_access_token
+   TWITTER_ACCESS_TOKEN_SECRET=your_actual_access_token_secret
    TWITTER_USERNAME=your_username
    ```
 
 3. Load the .env file in your application (requires `dotenv` crate)
 
-## Step 5: Test Your Setup
+## Step 6: Test Your Setup
 
 Run the example:
 
