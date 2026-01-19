@@ -19,7 +19,13 @@
 //! use xfiles::{XFS, OpenMode};
 //!
 //! # async fn example() -> xfiles::error::Result<()> {
-//! let mut fs = XFS::connect("@myagent", "api_key", "api_secret").await?;
+//! let mut fs = XFS::connect(
+//!     "@myagent",
+//!     "api_key",
+//!     "api_secret",
+//!     "access_token",
+//!     "access_token_secret"
+//! ).await?;
 //! let mut file = fs.open("memory.txt", OpenMode::Create).await?;
 //! file.write(b"Day 1: Agent bootstrapped").await?;
 //! # Ok(())

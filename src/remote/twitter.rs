@@ -5,7 +5,7 @@ use crate::error::{Result, XFilesError};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use oauth::{Token, Builder, HmacSha1};
+use oauth::{Token, HmacSha1};
 
 const TWITTER_API_BASE: &str = "https://api.twitter.com/2";
 
@@ -155,10 +155,6 @@ impl TwitterAdapter {
             reply: None,
         };
 
-        eprintln!("DEBUG: POST URL: {}", url);
-        eprintln!("DEBUG: Auth header: {}", &auth_header[..50.min(auth_header.len())]);
-        eprintln!("DEBUG: Payload: {:?}", payload);
-
         let response = self
             .client
             .post(&url)
@@ -172,8 +168,6 @@ impl TwitterAdapter {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            eprintln!("DEBUG: Response status: {}", status);
-            eprintln!("DEBUG: Response body: {}", error_text);
             return Err(XFilesError::TwitterApi(format!(
                 "Twitter API error {}: {}",
                 status, error_text
